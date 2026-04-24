@@ -1,58 +1,113 @@
-import React from 'react';
-import { Home, Layers, Hash, Moon, Sun, Search, Settings } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import { Home, Radio, Moon, Sun, Search, Menu, X, Settings, BookOpen } from 'lucide-react';
 import { useThemeStore } from '../../store/themeStore';
+import { useFilterStore } from '../../store/filterStore';
 
 export const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const { theme, toggleTheme } = useThemeStore();
+  const { search, setSearch } = useFilterStore();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+  }, [setSearch]);
+
+  const closeSidebar = () => setSidebarOpen(false);
 
   return (
     <>
       <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, fontSize: '1.25rem', color: 'var(--accent)' }}>
-          <Layers />
-          Pulse
+        {/* Hamburger — mobile only */}
+        <button
+          id="sidebar-toggle"
+          className="hamburger"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu size={22} />
+        </button>
+
+        <NavLink to="/" className="app-logo" onClick={closeSidebar}>
+          <Radio size={22} />
+          <span>Pulse</span>
+        </NavLink>
+
+        <div className="search-wrapper">
+          <Search size={16} className="search-icon" />
+          <input
+            id="global-search"
+            type="text"
+            placeholder="Search news, topics..."
+            className="search-input"
+            value={search}
+            onChange={handleSearch}
+          />
         </div>
-        <div style={{ flex: 1, maxWidth: '400px', margin: '0 2rem' }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={18} style={{ position: 'absolute', left: '1rem', color: 'var(--text-tertiary)' }} />
-            <input 
-              type="text" 
-              placeholder="Search news, topics, sources..." 
-              style={{
-                width: '100%',
-                padding: '0.5rem 1rem 0.5rem 2.5rem',
-                borderRadius: '9999px',
-                border: '1px solid var(--border)',
-                background: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                outline: 'none'
-              }} 
-            />
-          </div>
-        </div>
-        <button className="toggle-btn" onClick={toggleTheme}>
+
+        <button id="theme-toggle" className="toggle-btn" onClick={toggleTheme} title="Toggle theme">
           {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
         </button>
       </header>
-      
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={closeSidebar}
+          aria-hidden="true"
+        />
+      )}
+
       <div className="main-layout">
-        <aside className="sidebar">
+        <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
+          <div className="sidebar-header">
+            <span className="sidebar-brand">
+              <Radio size={18} /> Pulse
+            </span>
+            <button
+              id="sidebar-close"
+              className="sidebar-close-btn"
+              onClick={closeSidebar}
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
           <nav>
-            <a href="#" className="nav-link active">
-              <Home size={20} /> My Feed
-            </a>
-            <a href="#" className="nav-link">
-              <Hash size={20} /> Explore
-            </a>
-            <div style={{ margin: '2rem 0 1rem', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>
-              Sources
-            </div>
-            <a href="#" className="nav-link">
-              <Settings size={20} /> Manage Sources
-            </a>
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              onClick={closeSidebar}
+            >
+              <Home size={18} /> My Feed
+            </NavLink>
+            <NavLink
+              to="/knowledge"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              onClick={closeSidebar}
+            >
+              <BookOpen size={18} /> Knowledge
+            </NavLink>
+            <NavLink
+              to="/sources"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              onClick={closeSidebar}
+            >
+              <Radio size={18} /> Sources
+            </NavLink>
+            <NavLink
+              to="/settings"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              onClick={closeSidebar}
+            >
+              <Settings size={18} /> Settings
+            </NavLink>
           </nav>
         </aside>
-        
+
         <main className="content-area">
           {children}
         </main>

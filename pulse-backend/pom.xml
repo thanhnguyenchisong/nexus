@@ -54,11 +54,6 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-flyway</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
-
         <!-- RSS & HTTP -->
         <dependency>
             <groupId>org.apache.camel.quarkus</groupId>

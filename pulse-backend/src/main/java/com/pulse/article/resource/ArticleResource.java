@@ -1,12 +1,12 @@
 package com.pulse.article.resource;
 
-import com.pulse.article.entity.Article;
-import com.pulse.article.repository.ArticleRepository;
+import com.pulse.article.dto.ArticleDto;
+import com.pulse.article.service.ArticleService;
+import com.pulse.common.dto.PagedResponse;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.List;
 
 @Path("/api/v1/articles")
 @Produces(MediaType.APPLICATION_JSON)
@@ -14,27 +14,29 @@ import java.util.List;
 public class ArticleResource {
 
     @Inject
-    ArticleRepository articleRepository;
+    ArticleService articleService;
 
     @GET
-    public List<Article> getArticles(
-            @QueryParam("domain") String domain,
-            @QueryParam("page") @DefaultValue("0") int page,
-            @QueryParam("size") @DefaultValue("20") int size) {
-        
-        if (domain != null && !domain.isBlank()) {
-            return articleRepository.findByDomainRecent(domain, page, size);
-        }
-        return articleRepository.findRecent(page, size);
+    public PagedResponse<ArticleDto> getArticles(
+            @QueryParam("domain")   String domain,
+            @QueryParam("language") String language,
+            @QueryParam("category") String category,
+            @QueryParam("q")        String search,
+            @QueryParam("page")     @DefaultValue("0")  int page,
+            @QueryParam("size")     @DefaultValue("20") int size) {
+
+        // Cap size at 100
+        size = Math.min(size, 100);
+        return articleService.getArticles(domain, language, category, search, page, size);
     }
 
     @GET
     @Path("/{id}")
     public Response getArticle(@PathParam("id") Long id) {
-        Article article = articleRepository.findById(id);
-        if (article == null) {
+        ArticleDto dto = articleService.getById(id);
+        if (dto == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        return Response.ok(article).build();
+        return Response.ok(dto).build();
     }
 }
