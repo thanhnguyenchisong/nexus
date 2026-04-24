@@ -7,13 +7,15 @@ import com.pulse.article.repository.SourceRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.apache.camel.Exchange;
-import org.apache.camel.ProducerTemplate;
 import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndEnclosure;
+import com.rometools.rome.feed.synd.SyndFeed;
+import com.rometools.rome.io.SyndFeedInput;
+import com.rometools.rome.io.XmlReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -33,9 +35,6 @@ public class CollectorService {
     @Inject
     ArticleRepository articleRepository;
 
-    @Inject
-    ProducerTemplate producerTemplate;
-
     public void collectAll() {
         List<Source> sources = sourceRepository.find("status", "ACTIVE").list();
         log.info("Starting collection for {} active sources", sources.size());
@@ -53,36 +52,28 @@ public class CollectorService {
     public void collectSource(Source source) {
         log.info("Fetching: {} -> {}", source.name, source.feedUrl);
         try {
-            // Use Camel producer to fetch RSS feed
-            Exchange exchange = producerTemplate.request(
-                    "rss:" + source.feedUrl + "?feedHeader=false&sortEntries=true&consumer.delay=0",
-                    e -> {}
-            );
+            // Re-attach source in the current transaction context
+            Source attachedSource = sourceRepository.findById(source.id);
+            if (attachedSource == null) return;
 
-            if (exchange == null || exchange.getIn() == null) {
-                log.warn("No exchange for source: {}", source.name);
-                return;
-            }
-
-            Object body = exchange.getIn().getBody();
-            List<SyndEntry> entries;
-            if (body instanceof List<?> list) {
-                entries = list.stream()
-                        .filter(SyndEntry.class::isInstance)
-                        .map(SyndEntry.class::cast)
-                        .toList();
-            } else {
-                log.warn("Unexpected body type {} for source {}", body != null ? body.getClass() : "null", source.name);
+            // Fetch and parse RSS feed using Rome
+            URL feedSource = new URL(attachedSource.feedUrl);
+            SyndFeedInput input = new SyndFeedInput();
+            SyndFeed feed = input.build(new XmlReader(feedSource));
+            
+            List<SyndEntry> entries = feed.getEntries();
+            if (entries == null) {
+                log.warn("No entries found for source: {}", attachedSource.name);
                 return;
             }
 
             int saved = 0;
             for (SyndEntry entry : entries) {
-                if (saveArticle(entry, source)) saved++;
+                if (saveArticle(entry, attachedSource)) saved++;
             }
 
-            log.info("Saved {}/{} new articles from {}", saved, entries.size(), source.name);
-            updateSourceFetched(source);
+            log.info("Saved {}/{} new articles from {}", saved, entries.size(), attachedSource.name);
+            updateSourceFetched(attachedSource);
         } catch (Exception e) {
             log.error("RSS fetch error [{}]: {}", source.name, e.getMessage());
             markSourceError(source);
@@ -179,17 +170,21 @@ public class CollectorService {
 
     @Transactional
     protected void updateSourceFetched(Source source) {
-        source.lastFetchedAt = LocalDateTime.now();
-        source.errorCount = 0;
-        sourceRepository.persist(source);
+        Source attached = sourceRepository.findById(source.id);
+        if (attached != null) {
+            attached.lastFetchedAt = LocalDateTime.now();
+            attached.errorCount = 0;
+        }
     }
 
     @Transactional
     protected void markSourceError(Source source) {
-        source.errorCount++;
-        if (source.errorCount >= 5) {
-            source.status = "ERROR";
+        Source attached = sourceRepository.findById(source.id);
+        if (attached != null) {
+            attached.errorCount++;
+            if (attached.errorCount >= 5) {
+                attached.status = "ERROR";
+            }
         }
-        sourceRepository.persist(source);
     }
 }

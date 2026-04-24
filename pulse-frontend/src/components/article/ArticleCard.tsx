@@ -31,7 +31,14 @@ export const ArticleCard = ({ article }: { article: Article }) => {
           src={article.thumbnailUrl || FALLBACK_IMG}
           alt={article.title}
           className="card-img"
-          onError={(e) => { (e.target as HTMLImageElement).src = FALLBACK_IMG; }}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            if (target.src !== FALLBACK_IMG) {
+              target.src = FALLBACK_IMG;
+            } else {
+              target.style.display = 'none'; // hide if fallback also fails
+            }
+          }}
         />
         <div className="card-content">
           <h3 className="card-title">{article.title}</h3>
